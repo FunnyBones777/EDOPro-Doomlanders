@@ -20,17 +20,17 @@ function s.flipop(e,tp,eg,ep,ev,re,r,rp)
 	local tc=sg:GetFirst()
 	if tc then
 		--Cannot be targeted for attacks
+		local e1=Effect.CreateEffect(c)
+		e1:SetType(EFFECT_TYPE_SINGLE)
+		e1:SetCode(EFFECT_CANNOT_BE_BATTLE_TARGET)
+		e1:SetProperty(EFFECT_FLAG_SINGLE_RANGE)
+		e1:SetRange(LOCATION_MZONE)
+		c:RegisterEffect(e1)
+		--Can attack directly
 		local e2=Effect.CreateEffect(c)
 		e2:SetType(EFFECT_TYPE_SINGLE)
-		e2:SetCode(EFFECT_CANNOT_BE_BATTLE_TARGET)
-		e2:SetProperty(EFFECT_FLAG_SINGLE_RANGE)
-		e2:SetRange(LOCATION_MZONE)
+		e2:SetCode(EFFECT_DIRECT_ATTACK)
 		c:RegisterEffect(e2)
-		--Can attack directly
-		local e3=Effect.CreateEffect(c)
-		e3:SetType(EFFECT_TYPE_SINGLE)
-		e3:SetCode(EFFECT_DIRECT_ATTACK)
-		c:RegisterEffect(e3)
 	end
 end
 s.listed_series={0x666}

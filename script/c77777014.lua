@@ -2,7 +2,7 @@ local s,id=GetID()
 function s.initial_effect(c)
 	--fusion material
 	c:EnableReviveLimit()
-	Fusion.AddProcMixN(c,true,true,s.ffilter,2)
+	Fusion.AddProcMixN(c,true,true,s.ffilter,3)
 	--Excavate the top card of your Deck
 	local e1=Effect.CreateEffect(c)
 	e1:SetDescription(aux.Stringid(id,0))

@@ -1,76 +1,43 @@
 local s,id=GetID()
 function s.initial_effect(c)
-	--If you control no monsters: You can Special Summon this card from your GY
+	--Negate
 	local e1=Effect.CreateEffect(c)
 	e1:SetDescription(aux.Stringid(id,0))
-	e1:SetCategory(CATEGORY_SPECIAL_SUMMON)
-	e1:SetType(EFFECT_TYPE_IGNITION)
-	e1:SetRange(LOCATION_GRAVE)
-	e1:SetCountLimit(1,id,EFFECT_COUNT_CODE_DUEL)
-	e1:SetCondition(s.spcon)
-	e1:SetTarget(s.sptg)
-	e1:SetOperation(s.spop)
+	e1:SetCategory(CATEGORY_DISABLE)
+	e1:SetType(EFFECT_TYPE_QUICK_O)
+	e1:SetCode(EVENT_CHAINING)
+	e1:SetRange(LOCATION_HAND)
+	e1:SetCountLimit(1,id)
+	e1:SetCondition(s.discon)
+	e1:SetCost(Cost.SelfDiscard)
+	e1:SetTarget(s.distg)
+	e1:SetOperation(s.disop)
 	c:RegisterEffect(e1)
-	--Once per turn, You can Tribute both this face-up card and 1 face-up non-Tuner with a lower Level, and if you do, Special Summon 1 Synchro Monster from your Extra Deck with a Level equal to the difference in Levels of those monsters (this is treated as a Synchro Summon)
-	local e2=Effect.CreateEffect(c)
-	e2:SetDescription(aux.Stringid(id,1))
-	e2:SetCategory(CATEGORY_RELEASE+CATEGORY_SPECIAL_SUMMON)
-	e2:SetType(EFFECT_TYPE_IGNITION)
-	e2:SetRange(LOCATION_MZONE)
-	e2:SetCountLimit(1)
-	e2:SetTarget(s.darksynchtg)
-	e2:SetOperation(s.darksynchop)
-	c:RegisterEffect(e2)
 end
-function s.spcon(e,tp,eg,ep,ev,re,r,rp)
-	return Duel.GetFieldGroupCount(tp,LOCATION_MZONE,0)==0
-end
-function s.sptg(e,tp,eg,ep,ev,re,r,rp,chk)
-	local c=e:GetHandler()
-	if chk==0 then return Duel.GetLocationCount(tp,LOCATION_MZONE)>0
-		and c:IsCanBeSpecialSummoned(e,0,tp,false,false) end
-	Duel.SetOperationInfo(0,CATEGORY_SPECIAL_SUMMON,c,1,0,0)
-end
-function s.spop(e,tp,eg,ep,ev,re,r,rp)
-	local c=e:GetHandler()
-	if c:IsRelateToEffect(e) then
-		Duel.SpecialSummon(c,0,tp,tp,false,false,POS_FACEUP)
+function s.check(ev,re)
+	return function(category,checkloc)
+		if not checkloc and re:IsHasCategory(category) then return true end
+		local ex1,g1,gc1,dp1,dv1=Duel.GetOperationInfo(ev,category)
+		local ex2,g2,gc2,dp2,dv2=Duel.GetPossibleOperationInfo(ev,category)
+		if not (ex1 or ex2) then return false end
+		if category==CATEGORY_DRAW or category==CATEGORY_DECKDES then return true end
+		local g=Group.CreateGroup()
+		if g1 then g:Merge(g1) end
+		if g2 then g:Merge(g2) end
+		return (((dv1 or 0)|(dv2 or 0))&LOCATION_DECK)~=0 or (#g>0 and g:IsExists(Card.IsLocation,1,nil,LOCATION_DECK))
 	end
 end
-function s.nontunerfilter(c,e,tp,lv,mc)
-	return not c:IsType(TYPE_TUNER) and c:IsReleasable() and c:IsFaceup() and c:HasLevel() and c:IsLevelBelow(lv-1)
-		and Duel.IsExistingMatchingCard(s.darksyncfilter,tp,LOCATION_EXTRA,0,1,nil,e,tp,lv-c:GetLevel(),Group.FromCards(c,mc))
+function s.discon(e,tp,eg,ep,ev,re,r,rp)
+	if re:GetHandler():IsDisabled() or not Duel.IsChainDisablable(ev) then return false end
+	local checkfunc=s.check(ev,re)
+	return checkfunc(CATEGORY_TOHAND,true) or checkfunc(CATEGORY_SPECIAL_SUMMON,true)
+		or checkfunc(CATEGORY_TOGRAVE,true) or checkfunc(CATEGORY_DRAW,true) or checkfunc(CATEGORY_DRAW,false)
+		or checkfunc(CATEGORY_SEARCH,false) or checkfunc(CATEGORY_DECKDES,true) or checkfunc(CATEGORY_DECKDES,false)
 end
-function s.darksyncfilter(c,e,tp,lv,mg)
-	return c:IsSynchroMonster() and c:IsLevel(lv) and Duel.GetLocationCountFromEx(tp,tp,mg,c)>0
-		and c:IsCanBeSpecialSummoned(e,SUMMON_TYPE_SYNCHRO,tp,false,false)
+function s.distg(e,tp,eg,ep,ev,re,r,rp,chk)
+	if chk==0 then return not re:GetHandler():IsStatus(STATUS_DISABLED) end
+	Duel.SetOperationInfo(0,CATEGORY_DISABLE,eg,1,0,0)
 end
-function s.darksynchtg(e,tp,eg,ep,ev,re,r,rp,chk)
-	local c=e:GetHandler()
-	if chk==0 then
-		local pg=aux.GetMustBeMaterialGroup(tp,Group.CreateGroup(),tp,nil,nil,REASON_SYNCHRO)
-		return #pg<=0 and c:IsReleasable() and Duel.IsExistingMatchingCard(s.nontunerfilter,tp,LOCATION_MZONE,0,1,c,e,tp,c:GetLevel(),c)
-	end
-	Duel.SetOperationInfo(0,CATEGORY_RELEASE,c,2,tp,LOCATION_MZONE)
-	Duel.SetOperationInfo(0,CATEGORY_SPECIAL_SUMMON,nil,1,tp,LOCATION_EXTRA)
-end
-function s.darksynchop(e,tp,eg,ep,ev,re,r,rp)
-	local pg=aux.GetMustBeMaterialGroup(tp,Group.CreateGroup(),tp,nil,nil,REASON_SYNCHRO)
-	if #pg>0 then return end
-	local c=e:GetHandler()
-	if c:IsRelateToEffect(e) and c:IsFaceup() then
-		local lv=c:GetLevel()
-		Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_RELEASE)
-		local sc=Duel.SelectMatchingCard(tp,s.nontunerfilter,tp,LOCATION_MZONE,0,1,1,c,e,tp,lv,c):GetFirst()
-		if not sc then return end
-		Duel.HintSelection(sc)
-		lv=lv-sc:GetLevel()
-		if Duel.Release(Group.FromCards(c,sc),REASON_EFFECT)==2 then
-			Duel.Hint(HINT_SELECTMSG,tp,HINTMSG_SPSUMMON)
-			local sync=Duel.SelectMatchingCard(tp,s.darksyncfilter,tp,LOCATION_EXTRA,0,1,1,nil,e,tp,lv):GetFirst()
-			if sync and Duel.SpecialSummon(sync,SUMMON_TYPE_SYNCHRO,tp,tp,false,false,POS_FACEUP)>0 then
-				sync:CompleteProcedure()
-			end
-		end
-	end
+function s.disop(e,tp,eg,ep,ev,re,r,rp)
+	Duel.NegateEffect(ev)
 end
